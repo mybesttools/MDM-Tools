@@ -120,7 +120,7 @@ function Get-WindowsTimeZoneFromIANA {
 # ------------------------------------------------------------------------------------------------------- #
 # Variables, change to your needs
 # ------------------------------------------------------------------------------------------------------- #
-$StoreResults = "COMPANY\TimeZone\v2.0"
+$StoreResults = "COMPANY\TimeZone\v2.1"
 
 # Start Transcript
 Start-Transcript -Path "$env:ProgramData\Microsoft\IntuneManagementExtension\Logs\$($(Split-Path $PSCommandPath -Leaf).ToLower().Replace(".ps1",".log"))" | Out-Null
