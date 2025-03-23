@@ -1,1 +1,62 @@
+# ---------------------------------------------------------------------------- #
+# Author(s)    : Mike van der Sluis - MyBestTools                              #
+# Version      : 1.0                                                           #
+#                                                                              #
+# Description  : Tests to see if a device is compliant                         #
+#                                                                              #
+# Notes:                                                                       #
+#                                                                              #
+# This script is provided "As-Is" without any warranties                       #
+# ---------------------------------------------------------------------------- #
+function EnsureDeviceCompliant
+{
+    $complianceState="Noncompliant"
+    $folderExists = (Test-Path "$env:LOCALAPPDATA\Packages\Microsoft.CompanyPortal_8wekyb3d8bbwe\TempState\ApplicationCache" -PathType Container)
+    if (!$folderExists)
+    {
+        $LogTextBox.Text="Please activate the access check for this computer in Company Portal...`r`n"
+    }
+    else {
+        try
+        {
+            $scans=get-content -Path (Get-Childitem –Path (Join-Path $env:LOCALAPPDATA `
+            -ChildPath "Packages\Microsoft.CompanyPortal_8wekyb3d8bbwe\TempState\ApplicationCache") `
+            -Include *.tmp* -File -Recurse | sort-object -Descending -Property lastWritetime)
+        
+            foreach($scan in $scans){
+            
+                $data=(($scan | convertfrom-json).data|convertfrom-json)
+                if ($data.OfficialName -eq $env:COMPUTERNAME)
+                {
+                $data
+                   $today=Get-Date
+                   $dateofcheck=[datetime]::Parse($data.CreatedDate)
+                   $timeDifference =$today - $dateofcheck
+                   if ($timeDifference.Hours -lt 2) 
+                   {
+                      $complianceState=$data.ComplianceState
+                      if ($complianceState -eq "Compliant")
+                      {break}
+                   }
+                }
+            }
+        }
+        catch
+        {
+            return $false
+        }
+    }
 
+    if ($complianceState -ne "Compliant")
+    {
+      if (!(Get-Process -Name "*CompanyPortal") -and !$global:cpstarted){
+            $global:cpstarted=$true
+            #Start Company Portal
+            $LogTextBox.Text="Please log in in Company Portal so we can check device compliance...`r`n"
+            Start-Process "companyportal:"
+      }
+    }
+    return ($complianceState -eq "Compliant")
+}
+
+EnsureDeviceCompliant
