@@ -1,6 +1,5 @@
 # ---------------------------------------------------------------------------- #
-# Author(s)    : Mike van der Sluis - mybesttools                              #
-#                Peter Klapwijk - www.inthecloud247.com                        #
+# Author(s)    : Peter Klapwijk - www.inthecloud247.com                        #
 #              : Johannes Muller - Co-author @ www.2azure.nl                   #
 #                Original script from Koen Van den Broeck                      #
 # Version      : 2.1                                                           #
@@ -11,7 +10,7 @@
 # Notes:                                                                       #
 # https://ipinfo.io/ has a limit of 50k requests per month without a license   #
 #                                                                              #
-# This script is provided "As-Is" without any warranties                       #
+# This script is provide "As-Is" without any warranties                        #
 #                                                                              #
 # ---------------------------------------------------------------------------- #
 
@@ -46,123 +45,43 @@ Function CleanUpAndExit() {
     # Exit Script with the specified ErrorLevel
     EXIT $ErrorLevel
 }
-# Function to get geolocation data from IP address
-function Get-GeoLocation {
-    try {
-        # Using ip-api.com (free service, no API key required)
-        $geoData = Invoke-RestMethod -Uri "http://ip-api.com/json/" -Method Get
-        return $geoData
-    }
-    catch {
-        Write-Error "Failed to get geolocation data: $_"
-        return $null
-    }
-}
-# Function to get Windows time zone from coordinates
-function Get-TimeZoneFromCoordinates {
-    param (
-        [Parameter(Mandatory=$true)]
-        [double]$Latitude,
-         
-        [Parameter(Mandatory=$true)]
-        [double]$Longitude
-    )
-     
-    try {
-        # Using TimeZoneDB API (requires free API key)
-        # Replace YOUR_API_KEY with an actual key from https://timezonedb.com/
-        $apiKey = "YOUR-API-KEY-HERE"
-        $uri = "http://api.timezonedb.com/v2.1/get-time-zone?key=$apiKey&format=json&by=position&lat=$Latitude&lng=$Longitude"
-         
-        $tzData = Invoke-RestMethod -Uri $uri -Method Get
-         
-        # Convert IANA time zone to Windows time zone
-        $ianaTimeZone = $tzData.zoneName
-        $windowsTimeZone = Get-WindowsTimeZoneFromIANA -IANATimeZone $ianaTimeZone
-         
-        return $windowsTimeZone
-    }
-    catch {
-        Write-Error "Failed to get time zone data: $_"
-        return $null
-    }
-}
-# Function to convert IANA time zone to Windows time zone
-function Get-WindowsTimeZoneFromIANA {
-    param (
-        [Parameter(Mandatory=$true)]
-        [string]$IANATimeZone
-    )
-     
-    # Simplified mapping of common IANA to Windows time zones
-    $tzMapping = @{
-        "America/New_York" = "Eastern Standard Time"
-        "America/Chicago" = "Central Standard Time"
-        "America/Denver" = "Mountain Standard Time"
-        "America/Los_Angeles" = "Pacific Standard Time"
-        "Europe/London" = "GMT Standard Time"
-        "Europe/Paris" = "Romance Standard Time"
-        "Asia/Tokyo" = "Tokyo Standard Time"
-        # Add more mappings as needed
-    }
-     
-    if ($tzMapping.ContainsKey($IANATimeZone)) {
-        return $tzMapping[$IANATimeZone]
-    }
-    else {
-        # Default to UTC if mapping not found
-        Write-Warning "Time zone mapping not found for $IANATimeZone. Defaulting to UTC."
-        return "UTC"
-    }
-}
 #endregion Functions
 
 # ------------------------------------------------------------------------------------------------------- #
 # Variables, change to your needs
 # ------------------------------------------------------------------------------------------------------- #
 $StoreResults = "COMPANY\TimeZone\v2.1"
+$AzureMapsKey = "xxxxx" 
 
 # Start Transcript
 Start-Transcript -Path "$env:ProgramData\Microsoft\IntuneManagementExtension\Logs\$($(Split-Path $PSCommandPath -Leaf).ToLower().Replace(".ps1",".log"))" | Out-Null
 
-$currentTZ=$Null
+# Automatically configure the time zone
+$Error.Clear()
 
-# Main script execution
-try {
-    # Get geolocation data
-    $geoLocation = Get-GeoLocation
-     
-    if ($geoLocation) {
-        # Get time zone from coordinates
-        $timeZone = Get-TimeZoneFromCoordinates -Latitude $geoLocation.lat -Longitude $geoLocation.lon
-         
-        if ($timeZone) {
-            # Set the system time zone
-            Set-TimeZone -Id $timeZone
-            Write-Host "Successfully set time zone to: $timeZone"
-             
-            # Verify the change
-            $currentTZ = Get-TimeZone
-            Write-Host "Current time zone: $($currentTZ.Id)"
+# Retrieve IP information
+$IPInfo = Invoke-RestMethod http://ipinfo.io/json
+$CountryCode = $IPInfo.country
 
-        }
-    }
-}
-catch {
-    Write-Error "Script execution failed: $_"
-    exit 1
-}
+Write-Output "Country Code: $CountryCode"
 
-If (![string]::IsNullOrEmpty($currentTZ)) {
-    Write-Output "Mapped Country ($CountryCode) to Windows Time Zone: $currentTZ"
+# Retrieve all Windows Time Zones from Azure Maps
+$AzureMapsURL = "https://atlas.microsoft.com/timezone/enumWindows/json?api-version=1.0&subscription-key=$AzureMapsKey"
+$ResultTZ = Invoke-RestMethod -Uri $AzureMapsURL -Method Get
+# Retrieve Time Zone WindowsId
+$WindowsTZ = ($ResultTZ | Where-Object Territory -eq $CountryCode).WindowsId
+
+
+If (![string]::IsNullOrEmpty($WindowsTZ)) {
+    Write-Output "Mapped Country code ($CountryCode) to Windows Time Zone: $WindowsTZ"
 } else {
     Write-Output "No matching Windows Time Zone found for country: $CountryCode"
     CleanUpAndExit -ErrorLevel 103
 }
 
 # Set the Windows time zone
-Set-TimeZone -Id $currentTZ
-Write-Output "Successfully set Windows Time Zone: $currentTZ"
+Set-TimeZone -Id $WindowsTZ
+Write-Output "Successfully set Windows Time Zone: $WindowsTZ"
 
 CleanUpAndExit -ErrorLevel 0
 
