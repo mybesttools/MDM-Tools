@@ -17,7 +17,7 @@ function EnsureDeviceCompliant
     $folderExists = (Test-Path "$env:LOCALAPPDATA\Packages\Microsoft.CompanyPortal_8wekyb3d8bbwe\TempState\ApplicationCache" -PathType Container)
     if (!$folderExists)
     {
-        $LogTextBox.Text="Please activate the access check for this computer in Company Portal...`r`n"
+        Write-Host "Please activate the access check for this computer in Company Portal..."
     }
     else {
         try
@@ -53,7 +53,7 @@ function EnsureDeviceCompliant
       if (!(Get-Process -Name "*CompanyPortal") -and !$global:cpstarted){
             $global:cpstarted=$true
             #Start Company Portal
-            $LogTextBox.Text="Please log in in Company Portal so we can check device compliance...`r`n"
+            Write-Host  "Please log in in Company Portal so we can check device compliance..."
             Start-Process "companyportal:"
       }
     }
