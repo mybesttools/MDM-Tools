@@ -3,6 +3,9 @@
 # Version      : 1.0                                                           #
 #                                                                              #
 # Description  : Tests to see if a device is compliant                         #
+#                As all owned devices are listed, we check if the name         #
+#                equals the local hostname, and accept only recent contact     #
+#                datetime (max 2 hour) to be sure                              #
 #                                                                              #
 # Notes:                                                                       #
 #                                                                              #
@@ -28,15 +31,13 @@ function EnsureDeviceCompliant
                 $data=(($scan | convertfrom-json).data|convertfrom-json)
                 if ($data.OfficialName -eq $env:COMPUTERNAME)
                 {
-                $data
                    $today=Get-Date
-                   $dateofcheck=[datetime]::Parse($data.CreatedDate)
+                   $dateofcheck=[datetime]::Parse($data.LastContact)
                    $timeDifference =$today - $dateofcheck
                    if ($timeDifference.Hours -lt 2) 
                    {
                       $complianceState=$data.ComplianceState
-                      if ($complianceState -eq "Compliant")
-                      {break}
+                      if ($complianceState -eq "Compliant"){return $true}
                    }
                 }
             }
